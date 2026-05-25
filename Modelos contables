@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financiero - Base Madre</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }
+        .sidebar { width: 250px; height: 100vh; background-color: #2c3e50; position: fixed; color: white; padding-top: 20px; }
+        .sidebar h2 { text-align: center; font-size: 20px; border-bottom: 1px solid #1abc9c; padding-bottom: 15px; margin: 0 20px 20px; }
+        .menu-item { padding: 15px 25px; cursor: pointer; transition: 0.3s; }
+        .menu-item:hover { background-color: #1abc9c; }
+        .content { margin-left: 250px; padding: 30px; }
+        .header { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;}
+        .card-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .card h3 { margin-top: 0; color: #34495e; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; color: #2c3e50; }
+        .status { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .btn-sync { background-color: #1abc9c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-sync:hover { background-color: #16a085; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>📊 Flujos de Trabajo</h2>
+        <div class="menu-item" onclick="showSection('modelo')">Modelo Contable</div>
+        <div class="menu-item" onclick="showSection('seguimiento')">Seguimiento a Cuentas</div>
+        <div class="menu-item" onclick="showSection('balance')">Balance Diario</div>
+    </div>
+
+    <div class="content">
+        <div class="header">
+            <div>
+                <h1 style="margin:0; color:#2c3e50;">Panel de Control Financiero</h1>
+                <p style="margin:5px 0 0; color:#7f8c8d;">Conectado en tiempo real con Google Sheets</p>
+            </div>
+            <button class="btn-sync" onclick="loadAllData()">🔄 Sincronizar Datos</button>
+        </div>
+
+        <div id="setup-message" class="card" style="background-color: #fff3cd; border-left: 5px solid #ffecb5; margin-bottom: 20px;">
+            <h3>⚠️ Configuración Pendiente</h3>
+            <p>Para conectar tu archivo de Google Sheets, necesitamos configurar las URLs públicas de tus hojas en formato CSV. Responde a las preguntas del asistente para poder configurarlo.</p>
+        </div>
+
+        <!-- Secciones dinámicas -->
+        <div id="modelo" class="card" style="display: block;">
+            <h3>Modelo Contable</h3>
+            <p>Visualización jerárquica de cuentas (Esperando conexión...)</p>
+            <div id="tabla-modelo" style="overflow-x:auto;"></div>
+        </div>
+
+        <div id="seguimiento" class="card" style="display: none;">
+            <h3>Seguimiento a Cuentas</h3>
+            <p>Auditoría de transacciones y saldos (Esperando conexión...)</p>
+            <div id="tabla-seguimiento" style="overflow-x:auto;"></div>
+        </div>
+
+        <div id="balance" class="card" style="display: none;">
+            <h3>Balance Diario</h3>
+            <p>Indicadores al cierre del día (Esperando conexión...)</p>
+            <div id="tabla-balance" style="overflow-x:auto;"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // 🚨 AQUÍ COLOCAREMOS TUS ENLACES DE SHEETS 🚨
+        // ==========================================
+        const SHEET_URLS = {
+            modelo: 'URL_CSV_MODELO', 
+            seguimiento: 'URL_CSV_SEGUIMIENTO',
+            balance: 'URL_CSV_BALANCE'
+        };
+
+        function showSection(id) {
+            document.getElementById('modelo').style.display = 'none';
+            document.getElementById('seguimiento').style.display = 'none';
+            document.getElementById('balance').style.display = 'none';
+            document.getElementById(id).style.display = 'block';
+        }
+
+        // Función básica para convertir CSV a Tabla HTML
+        function csvToTable(csv) {
+            const rows = csv.split('\n');
+            let table = '<table><tr>';
+            
+            if(rows.length === 0) return '';
+
+            // Encabezados
+            const headers = rows[0].split(',');
+            headers.forEach(header => {
+                table += `<th>${header.replace(/"/g, '')}</th>`;
+            });
+            table += '</tr>';
+
+            // Datos
+            for (let i = 1; i < rows.length; i++) {
+                if (rows[i].trim() === '') continue;
+                table += '<tr>';
+                // Separador simple por coma (sin soporte avanzado de comas dentro de comillas por ahora para simplicidad)
+                const cols = rows[i].split(',');
+                cols.forEach(col => {
+                    table += `<td>${col.replace(/"/g, '')}</td>`;
+                });
+                table += '</tr>';
+            }
+            table += '</table>';
+            return table;
+        }
+
+        // Función para cargar los datos de Sheets
+        async function loadData(section, url) {
+            const container = document.getElementById(`tabla-${section}`);
+            if (url === 'URL_CSV_MODELO' || url.includes('URL_CSV')) {
+                container.innerHTML = '<p style="color: #e74c3c;"><em>Falta configurar la URL del Google Sheet en el código.</em></p>';
+                return;
+            }
+
+            container.innerHTML = '<p>⏳ Cargando datos desde Sheets...</p>';
+            try {
+                const response = await fetch(url);
+                if(!response.ok) throw new Error("No se pudo obtener el archivo. Revisa que esté publicado.");
+                const csvText = await response.text();
+                container.innerHTML = csvToTable(csvText);
+            } catch (error) {
+                container.innerHTML = `<p style="color:red;">❌ Error al cargar: ${error.message}</p>`;
+            }
+        }
+
+        function loadAllData() {
+            loadData('modelo', SHEET_URLS.modelo);
+            loadData('seguimiento', SHEET_URLS.seguimiento);
+            loadData('balance', SHEET_URLS.balance);
+        }
+
+        // Carga inicial
+        loadAllData();
+    </script>
+</body>
+</html>
